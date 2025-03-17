@@ -1,1 +1,6 @@
 src/TASK 2/lex.yy.c
+src/Task 3/A/expr.tab.c
+src/Task 3/A/lex.yy.c
+src/Task 3/A/expr.tab.h
+
+
