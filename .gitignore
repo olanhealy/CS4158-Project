@@ -2,5 +2,8 @@ src/TASK 2/lex.yy.c
 src/Task 3/A/expr.tab.c
 src/Task 3/A/lex.yy.c
 src/Task 3/A/expr.tab.h
+src/TASK 3/B/var.tab.h
+src/TASK 3/B/var.tab.c
+src/TASK 3/B/lex.yy.c
 
 
