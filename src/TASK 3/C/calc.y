@@ -23,7 +23,6 @@ expr: NUMBER              { $$ = $1; }
     | '(' expr ')'        { $$ = $2; }
     ;
 %%
-
 int main(void) {
     printf("Enter expression:\n");
     yyparse();
