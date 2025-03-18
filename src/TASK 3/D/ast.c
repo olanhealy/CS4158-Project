@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "ast.h"  // if you create a header; otherwise define struct in this file
+#include "ast.h"
 
 AST *newast(int nodetype, AST *left, AST *right) {
     AST *node = (AST *)malloc(sizeof(AST));

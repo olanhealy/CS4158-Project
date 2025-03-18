@@ -1,24 +1,39 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
-
-typedef struct AST {
-    int nodetype;          // '+', '-', '*', '/', 'N' for number, etc.
-    struct AST *left;
-    struct AST *right;
-    int value;             // valid if nodetype == 'N'
-} AST;
-
-AST *newast(int nodetype, AST *left, AST *right);
-AST *newnum(int value);
-void print_ast(AST *node);
+#include "ast.h"
+AST *root;  // Global variable to hold the AST root
+int yylex(void);
+int yyerror(char *s);
 %}
 
-%token NUMBER
+%code requires {
+  #include "ast.h"
+}
+
+%union {
+    AST *node;  // For AST pointers
+    int num;    // For numeric values (from NUMBER)
+}
+
+%token <num> NUMBER
+%type <node> expr
+%type <node> input
+%type <node> newline
+
 %left '+' '-'
 %left '*' '/'
 
 %%
+input:
+      expr newline { root = $1; }
+    ;
+
+newline:
+      '\n'
+    | newline '\n'
+    ;
+
 expr: expr '+' expr   { $$ = newast('+', $1, $3); }
     | expr '-' expr   { $$ = newast('-', $1, $3); }
     | expr '*' expr   { $$ = newast('*', $1, $3); }
@@ -28,14 +43,12 @@ expr: expr '+' expr   { $$ = newast('+', $1, $3); }
     ;
 %%
 
-#include "ast.c"   // Contains the definitions of newast, newnum, print_ast
-
 int main(void) {
-    AST *tree;
-    printf("Enter an arithmetic expression:\n");
+    printf("Enter an arithmetic expression followed by newline:\n");
     yyparse();
-    // Suppose the final result of the parse is stored in a global variable (or returned)
-    // Here, you would call print_ast(tree); to display the AST
+    printf("The Abstract Syntax Tree is:\n");
+    print_ast(root);
+    printf("\n");
     return 0;
 }
 
