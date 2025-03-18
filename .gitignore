@@ -1,5 +1,6 @@
 src/TASK 3/*/*.tab.h
 src/TASK 3/*/*.tab.c
 src/TASK 3/*/*.yy.c
+src/TASK 2/lex.yy.c
 
 
