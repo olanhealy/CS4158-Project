@@ -8,24 +8,4 @@ In this task, a simple lexical analyser is implemented using Lex ( same as last 
 - **Punctuators:** Matches punctuation symbols like commas, semicolons, and periods.
 - **Symbols:** Any character not matching the above rules is printed as a symbol.
 
-
-SAMPLE OUTPUT
-```
-Enter a line of code:
-int x = 10;
-KEYWORD: int
-IDENTIFIER: x
-OPERATOR: =
-NUMBER: 10
-PUNCTUATOR: ;
-
-Enter a line of code:
-String s = "Hello";
-KEYWORD: String
-IDENTIFIER: s
-OPERATOR: =
-PUNCTUATOR: "
-IDENTIFIER: Hello
-PUNCTUATOR: "
-PUNCTUATOR: ;
-```
+![Example provided](../../images/Task2/image.png)

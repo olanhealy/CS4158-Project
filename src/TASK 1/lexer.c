@@ -4,42 +4,9 @@
 #include <stdbool.h>
 
 #define MAX_TOKEN_SIZE 100
-
-// enum of the types of tokens
-typedef enum {
-    TOKEN_KEYWORD,
-    TOKEN_IDENTIFIER,
-    TOKEN_LITERAL,
-    TOKEN_OPERATOR,
-    TOKEN_PUNCTUATION,
-    TOKEN_UNKNOWN
-} TokenType;
+#define MAX_TOKENS 100
 
 // helper function to print tokens with their types 
-void printToken(TokenType type, const char *lexeme) {
-    switch(type) {
-        case TOKEN_KEYWORD:
-            printf("Keyword: %s\n", lexeme);
-            break;
-        case TOKEN_IDENTIFIER:
-            printf("Identifier: %s\n", lexeme);
-            break;
-        case TOKEN_LITERAL:
-            printf("Literal: %s\n", lexeme);
-            break;
-        case TOKEN_OPERATOR:
-            printf("Operator: %s\n", lexeme);
-            break;
-        case TOKEN_PUNCTUATION:
-            printf("Punctuation: %s\n", lexeme);
-            break;
-        default:
-            printf("Unknown: %s\n", lexeme);
-            break;
-    }
-}
-
-//function check if something is keyword
 bool isKeyword(const char *token) {
     // List of Java keywords, just took these
     const char *keywords[] = {"int", "String", "long", "double", "float", "boolean", "char"};
@@ -52,66 +19,111 @@ bool isKeyword(const char *token) {
 }
 
 int main() {
-    char input[256];
+    char input[1024];
+    printf("Enter a line(s) of code (end input with '$$' on a new line):\n");
 
-    //User to input a LOC
-    printf("Enter a line of code: ");
-    if (fgets(input, sizeof(input), stdin) == NULL) {
-        return 0;
+    char line[256];
+    input[0] = '\0';
+
+    while (fgets(line, sizeof(line), stdin)) {
+        if (strcmp(line, "$$\n") == 0) break;  
+        strcat(input, line); // Append to total input
     }
+
+    char keywords[MAX_TOKENS][MAX_TOKEN_SIZE];
+    char identifiers[MAX_TOKENS][MAX_TOKEN_SIZE];
+    char constants[MAX_TOKENS][MAX_TOKEN_SIZE];
+    char operators[MAX_TOKENS][MAX_TOKEN_SIZE];
+    char symbols[MAX_TOKENS][MAX_TOKEN_SIZE];
+
+    int kwCount = 0, idCount = 0, constCount = 0, opCount = 0, symCount = 0;
 
     int i = 0;
     while (input[i] != '\0') {
-        // Skip all whitespace: spaces, tabs, new lines, etc. 
-        if (isspace((unsigned char)input[i])) {
+        // Skip whitespace
+        if (isspace(input[i])) {
             i++;
+            continue;
+        }
+
+        // Skip comments
+        if (input[i] == '/' && input[i+1] == '/') {
+            while (input[i] != '\0' && input[i] != '\n') i++;
             continue;
         }
 
         char token[MAX_TOKEN_SIZE] = {0};
         int j = 0;
-        TokenType type = TOKEN_UNKNOWN;
 
-        // identifiers
-        if (isalpha((unsigned char)input[i])) {
-            while (i < (int)strlen(input) && (isalnum((unsigned char)input[i]) || input[i]=='_') && j < MAX_TOKEN_SIZE - 1) {
+        // Identifiers / Keywords
+        if (isalpha(input[i])) {
+            while (isalnum(input[i]) || input[i] == '_') {
                 token[j++] = input[i++];
             }
             token[j] = '\0';
-            if (isKeyword(token))
-                type = TOKEN_KEYWORD;
-            else
-                type = TOKEN_IDENTIFIER;
+
+            if (isKeyword(token)) {
+                strcpy(keywords[kwCount++], token);
+            } else {
+                strcpy(identifiers[idCount++], token);
+            }
         }
-        // literals
-        else if (isdigit((unsigned char)input[i])) {
-            while (i < (int)strlen(input) && isdigit((unsigned char)input[i]) && j < MAX_TOKEN_SIZE - 1) {
+        // Constants
+        else if (isdigit(input[i])) {
+            while (isdigit(input[i])) {
                 token[j++] = input[i++];
             }
             token[j] = '\0';
-            type = TOKEN_LITERAL;
+            strcpy(constants[constCount++], token);
         }
-        // operators
+        // Operators
         else if (strchr("+-*/=", input[i]) != NULL) {
             token[j++] = input[i++];
             token[j] = '\0';
-            type = TOKEN_OPERATOR;
+            strcpy(operators[opCount++], token);
         }
-        // puncuations
+        // Symbols
         else if (strchr(",;.", input[i]) != NULL) {
             token[j++] = input[i++];
             token[j] = '\0';
-            type = TOKEN_PUNCTUATION;
+            strcpy(symbols[symCount++], token);
         }
-        // everything else is unknow
+        // Skip anything else
         else {
-            token[j++] = input[i++];
-            token[j] = '\0';
-            type = TOKEN_UNKNOWN;
+            i++;
         }
-        
-        printToken(type, token);
     }
+
+    // Print results
+    printf("\nConstants:   [");
+    for (int i = 0; i < constCount; i++) {
+        printf("'%s'%s", constants[i], (i < constCount - 1) ? ", " : "");
+    }
+    printf("]\n");
+
+    printf("KeyWord:     [");
+    for (int i = 0; i < kwCount; i++) {
+        printf("'%s'%s", keywords[i], (i < kwCount - 1) ? ", " : "");
+    }
+    printf("]\n");
+
+    printf("Identifier:  [");
+    for (int i = 0; i < idCount; i++) {
+        printf("'%s'%s", identifiers[i], (i < idCount - 1) ? ", " : "");
+    }
+    printf("]\n");
+
+    printf("Operators:   [");
+    for (int i = 0; i < opCount; i++) {
+        printf("'%s'%s", operators[i], (i < opCount - 1) ? ", " : "");
+    }
+    printf("]\n");
+
+    printf("Symbols:     [");
+    for (int i = 0; i < symCount; i++) {
+        printf("'%s'%s", symbols[i], (i < symCount - 1) ? ", " : "");
+    }
+    printf("]\n");
 
     return 0;
 }

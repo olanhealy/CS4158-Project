@@ -7,12 +7,4 @@ Design and implement a lexical analyzer in C that processes a given line of code
 - **Punctuators:** Matches punctuation symbols like commas, semicolons, and periods.
 - **Symbols:** Any character not matching the above rules is printed as a symbol.
 
-SAMPLE OUTPUT
-```
-Enter a line of code: int x = 10;
-Keyword: int
-Identifier: x
-Operator: =
-Literal: 10
-Punctuation: ;
-```
+![Example provided](../../images/Task1/image.png)
