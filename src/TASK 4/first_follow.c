@@ -3,257 +3,218 @@
 #include <string.h>
 #include <ctype.h>
 
-#define MAX_SYMBOLS 50
-#define MAX_PRODUCTIONS 50
-#define MAX_RHS_LENGTH 100
+#define MAX_RULES 20
+#define MAX_RHS 50
+#define MAX_INPUT 200
+#define EPSILON '#'
 
-// Structure to store a production rule
-typedef struct {
-    char left;                 // Left-hand side (non-terminal, e 'S')
-    char right[MAX_RHS_LENGTH]; // Right-hand side (e.g., "daT|Rf")
-} Production;
+// Global arrays to store grammar productions, nonterminals, and terminals.
+char rules[MAX_RULES][MAX_RHS];
+char NT_list[MAX_RULES];
+char T_list[MAX_RULES];
+int ruleCount = 0, NT_count = 0, T_count = 0;
 
-// Global arrays for FIRST and FOLLOW sets.
-char FIRST[128][MAX_SYMBOLS];
-char FOLLOW[128][MAX_SYMBOLS];
+// FIRST and FOLLOW sets are stored indexed by ASCII values.
+char FIRST_set[128][MAX_RULES];
+char FOLLOW_set[128][MAX_RULES];
 
-// List of non-terminals encountered
-char nonTerminals[MAX_SYMBOLS] = "";
-int nonTerminalCount = 0;
-
-
-// For epison input we treat '^' or '#' as epsilon
-int isEpsilonChar(char c) {
-    return (c == '#' || c == '^');
+// Returns true if symbol is considered a terminal: not uppercase and not epsilon.
+int isTerminal(char sym) {
+    return (!isupper(sym) && sym != EPSILON);
 }
 
-// Check if a character is an uppercase letter => non-terminal
-int isNonTerminal(char c) {
-    return (c >= 'A' && c <= 'Z');
+// Returns true if symbol is a nonterminal (uppercase letter).
+int isNonTerminal(char sym) {
+    return (isupper(sym));
 }
 
-// Add a symbol to a set if it's not already present
-void addToSet(char *set, char c) {
-    if (!strchr(set, c)) {
-        int len = (int)strlen(set);
-        set[len] = c;
-        set[len+1] = '\0';
+// Searches for a nonterminal in list.
+int indexOfNT(char sym) {
+    for (int i = 0; i < NT_count; i++) {
+        if (NT_list[i] == sym)
+            return i;
+    }
+    return -1;
+}
+
+// Adds a symbol to a set (string) if it isn’t already present.
+void setInsert(char *setStr, char sym) {
+    if (!strchr(setStr, sym)) {
+        int len = strlen(setStr);
+        setStr[len] = sym;
+        setStr[len+1] = '\0';
     }
 }
 
-// Merge symbols from src into dest (ignoring epsilon chars when merging)
-// Returns 1 if new symbol(s) were added, 0 otherwise
-int mergeSet(char *dest, const char *src) {
-    int changed = 0;
-    for (int i = 0; i < (int)strlen(src); i++) {
-        char c = src[i];
-        if (isEpsilonChar(c))
-            continue; 
-        if (!strchr(dest, c)) {
-            addToSet(dest, c);
-            changed = 1;
-        }
+// Compute FIRST set for a given symbol (recursively)
+// The result is accumulated in 'firstResult'.
+void computeFirst(char sym, char *firstResult) {
+    // If it is a terminal, FIRST is itself.
+    if (isTerminal(sym)) {
+        setInsert(firstResult, sym);
+        return;
     }
-    return changed;
-}
-
-// Initialise FIRST sets for all terminal symbols
-// For any terminal, FIRST(terminal) = { terminal }
-void initTerminalFIRST() {
-    for (int c = 0; c < 128; c++) {
-        if (!isNonTerminal(c) && !isspace(c) && c != '\0') {
-            FIRST[c][0] = (char)c;
-            FIRST[c][1] = '\0';
-        }
-    }
-}
-
-// Compute FIRST for a given non-terminal symbol by scanning productions
-void computeFIRSTForSymbol(char symbol, Production *prods, int prodCount) {
-    for (int i = 0; i < prodCount; i++) {
-        if (prods[i].left == symbol) {
-            // Copy right side so strtok doesn't modify original
-            char rhsCopy[MAX_RHS_LENGTH];
-            strcpy(rhsCopy, prods[i].right);
-            // Split the right-hand side by '|'
-            char *alt = strtok(rhsCopy, "|");
-            while (alt != NULL) {
-                int addEpsilon = 1;  
-                int len = (int)strlen(alt);
-                for (int j = 0; j < len && addEpsilon; j++) {
-                    char s = alt[j];
-                    // If we see an epsilon char, add it (store as '^') and stop
-                    if (isEpsilonChar(s)) {
-                        addToSet(FIRST[symbol], '^');
-                        addEpsilon = 0;
-                        break;
+    // For each production whose LHS equals sym:
+    for (int i = 0; i < ruleCount; i++) {
+        if (rules[i][0] == sym) {
+            char *rhsPart = rules[i] + 2;  
+            if (rhsPart[0] == EPSILON) {
+                setInsert(firstResult, EPSILON);
+            } else {
+                int epsilonFlag = 1;
+                int len = strlen(rhsPart);
+                for (int j = 0; j < len && epsilonFlag; j++) {
+                    char tempFirst[MAX_RULES] = "";
+                    computeFirst(rhsPart[j], tempFirst);
+                    for (int k = 0; k < strlen(tempFirst); k++) {
+                        if (tempFirst[k] != EPSILON)
+                            setInsert(firstResult, tempFirst[k]);
                     }
-                    if (isNonTerminal(s)) {
-                        // Merge FIRST(s) into FIRST(symbol)
-                        mergeSet(FIRST[symbol], FIRST[s]);
-                        // If FIRST(s) does not contain epsilon, stop
-                        if (!strchr(FIRST[s], '^'))
-                            addEpsilon = 0;
-                    } else {
-                        // merge its FIRST set (which is just itself) into FIRST(symbol)
-                        mergeSet(FIRST[symbol], FIRST[s]);
-                        addEpsilon = 0;
-                    }
+                    if (!strchr(tempFirst, EPSILON))
+                        epsilonFlag = 0;
+                    if (j == len - 1 && epsilonFlag)
+                        setInsert(firstResult, EPSILON);
                 }
-                if (addEpsilon) {
-                    addToSet(FIRST[symbol], '^');
-                }
-                alt = strtok(NULL, "|");
             }
         }
     }
 }
 
-// Iteratively compute FIRST sets for all non-terminals
-void computeAllFIRST(Production *prods, int prodCount) {
-    initTerminalFIRST();
-    int changed = 1;
-    while (changed) {
-        changed = 0;
-        for (int i = 0; i < nonTerminalCount; i++) {
-            char nt = nonTerminals[i];
-            int oldSize = (int)strlen(FIRST[nt]);
-            computeFIRSTForSymbol(nt, prods, prodCount);
-            if ((int)strlen(FIRST[nt]) > oldSize)
-                changed = 1;
+// Iteratively update FIRST sets for all nonterminals.
+void updateAllFirsts() {
+    for (int i = 0; i < NT_count; i++) {
+        computeFirst(NT_list[i], FIRST_set[(int)NT_list[i]]);
+    }
+}
+
+// Compute FOLLOW set for a given nonterminal
+// The result is accumulated in 'followResult'
+void computeFollow(char sym, char *followResult) {
+    // Add '$' for the start symbol
+    if (sym == rules[0][0])
+        setInsert(followResult, '$');
+    
+    // For each production, check the RHS for occurrences of sym
+    for (int i = 0; i < ruleCount; i++) {
+        char *rhsPart = rules[i] + 2;
+        int len = strlen(rhsPart);
+        for (int j = 0; j < len; j++) {
+            if (rhsPart[j] == sym) {
+                // If not the last symbol in the RHS
+                if (rhsPart[j+1] != '\0') {
+                    char tempRes[MAX_RULES] = "";
+                    computeFirst(rhsPart[j+1], tempRes);
+                    for (int k = 0; k < strlen(tempRes); k++) {
+                        if (tempRes[k] != EPSILON)
+                            setInsert(followResult, tempRes[k]);
+                    }
+                    if (strchr(tempRes, EPSILON)) {
+                        char tempFollow[MAX_RULES] = "";
+                        computeFollow(rules[i][0], tempFollow);
+                        for (int k = 0; k < strlen(tempFollow); k++)
+                            setInsert(followResult, tempFollow[k]);
+                    }
+                } else {
+                    // If sym is at the end of the production and LHS is not sym.
+                    if (rules[i][0] != sym) {
+                        char tempFollow[MAX_RULES] = "";
+                        computeFollow(rules[i][0], tempFollow);
+                        for (int k = 0; k < strlen(tempFollow); k++)
+                            setInsert(followResult, tempFollow[k]);
+                    }
+                }
+            }
         }
     }
 }
 
-// Compute FOLLOW sets 
-void computeAllFOLLOW(Production *prods, int prodCount, char startSymbol) {
-    // Add '$' to FOLLOW(startSymbol)
-    addToSet(FOLLOW[startSymbol], '$');
-    int changed = 1;
-    while (changed) {
-        changed = 0;
-        for (int i = 0; i < prodCount; i++) {
-            char A = prods[i].left;
-            char rhsCopy[MAX_RHS_LENGTH];
-            strcpy(rhsCopy, prods[i].right);
-            char *alt = strtok(rhsCopy, "|");
-            while (alt != NULL) {
-                int len = (int)strlen(alt);
-                for (int j = 0; j < len; j++) {
-                    char B = alt[j];
-                    if (isNonTerminal(B)) {
-                        int k = j + 1;
-                        int canEpsilon = 1;
-                        char betaFIRST[MAX_SYMBOLS] = "";
-                        // Collect FIRST of the symbols following B
-                        while (k < len && canEpsilon) {
-                            char X = alt[k];
-                            mergeSet(betaFIRST, FIRST[X]);
-                            if (!strchr(FIRST[X], '^'))
-                                canEpsilon = 0;
-                            k++;
-                        }
-                        // Remove epsilon marker from betaFIRST if present.
-                        char *ep = strchr(betaFIRST, '^');
-                        if (ep) *ep = '\0';
-                        int oldSize = (int)strlen(FOLLOW[B]);
-                        mergeSet(FOLLOW[B], betaFIRST);
-                        // If beta can produce epsilon, add FOLLOW(A) to FOLLOW(B)
-                        if (canEpsilon) {
-                            mergeSet(FOLLOW[B], FOLLOW[A]);
-                        }
-                        if ((int)strlen(FOLLOW[B]) > oldSize)
-                            changed = 1;
-                    }
+// Compute FOLLOW sets for all nonterminals.
+void updateAllFollows() {
+    for (int i = 0; i < NT_count; i++) {
+        FOLLOW_set[(int)NT_list[i]][0] = '\0';
+    }
+    for (int i = 0; i < NT_count; i++) {
+        computeFollow(NT_list[i], FOLLOW_set[(int)NT_list[i]]);
+    }
+}
+
+// Populate NT_list and T_list using the productions
+void discoverSymbols() {
+    for (int i = 0; i < ruleCount; i++) {
+        char lhs = rules[i][0];
+        if (!strchr(NT_list, lhs)) {
+            int len = strlen(NT_list);
+            NT_list[len] = lhs;
+            NT_list[len+1] = '\0';
+            NT_count++;
+        }
+        // Scan the RHS for terminals
+        for (int j = 2; rules[i][j] != '\0'; j++) {
+            char sym = rules[i][j];
+            if (isTerminal(sym) && sym != EPSILON && !isspace(sym)) {
+                if (!strchr(T_list, sym)) {
+                    int len = strlen(T_list);
+                    T_list[len] = sym;
+                    T_list[len+1] = '\0';
+                    T_count++;
                 }
-                alt = strtok(NULL, "|");
             }
         }
     }
 }
 
 int main() {
-    Production prods[MAX_PRODUCTIONS];
-    int prodCount;
-
-    printf("Enter number of productions: ");
-    scanf("%d", &prodCount);
-    getchar(); 
-
-    // Read productions in the format: S->AB|eDa
-    char startSymbol = 0;
-    for (int i = 0; i < prodCount; i++) {
-        char line[200];
-        printf("Enter production %d: ", i + 1);
-        fgets(line, sizeof(line), stdin);
-        line[strcspn(line, "\n")] = '\0';
-        if (strlen(line) == 0) break;
-
-        char left = line[0];
-        if (startSymbol == 0)
-            startSymbol = left;
-        char *arrow = strstr(line, "->");
-        if (!arrow) {
-            printf("Invalid production format (missing '->'). Try again.\n");
-            i--;
-            continue;
-        }
-        char rightSide[200];
-        strcpy(rightSide, arrow + 2); 
-
-        // Remove spaces from rightSide
-        int pos = 0;
-        for (int j = 0; j < (int)strlen(rightSide); j++) {
-            if (!isspace((unsigned char)rightSide[j])) {
-                rightSide[pos++] = rightSide[j];
+    char inputLine[MAX_INPUT];
+    
+    printf("Enter grammar productions (one per line). End input with an empty line:\n");
+    while (fgets(inputLine, sizeof(inputLine), stdin)) {
+        if (inputLine[0] == '\n') break;
+        inputLine[strcspn(inputLine, "\n")] = '\0';
+        if (strchr(inputLine, '=')) {
+            // The production is expected in format: X=...
+            char LHS = inputLine[0];
+            char *rhsFragment = strtok(inputLine + 2, "|");
+            while (rhsFragment != NULL) {
+                sprintf(rules[ruleCount], "%c=%s", LHS, rhsFragment);
+                ruleCount++;
+                rhsFragment = strtok(NULL, "|");
             }
         }
-        rightSide[pos] = '\0';
-
-        prods[i].left = left;
-        strcpy(prods[i].right, rightSide);
-
-        // Add left-hand side non-terminal if not already recorded
-        if (!strchr(nonTerminals, left)) {
-            int len = (int)strlen(nonTerminals);
-            nonTerminals[len] = left;
-            nonTerminals[len + 1] = '\0';
-            nonTerminalCount++;
-        }
     }
-
-    // Initialise FIRST and FOLLOW sets to empty
-    for (int i = 0; i < 128; i++) {
-        FIRST[i][0] = '\0';
-        FOLLOW[i][0] = '\0';
+    
+    printf("Transitions Read: (%d)\n", ruleCount);
+    for (int i = 0; i < ruleCount; i++) {
+        printf(" %s\n", rules[i]);
     }
-
-    computeAllFIRST(prods, prodCount);
-    computeAllFOLLOW(prods, prodCount, startSymbol);
-
-    // Print FIRST sets.
-    printf("\n=== FIRST Sets ===\n");
-    for (int i = 0; i < nonTerminalCount; i++) {
-        char nt = nonTerminals[i];
-        printf("FIRST(%c) = { ", nt);
-        for (int j = 0; j < (int)strlen(FIRST[nt]); j++) {
-            char c = FIRST[nt][j];
-            if (isEpsilonChar(c)) c = '^';
-            printf("%c ", c);
-        }
-        printf("}\n");
+    
+    discoverSymbols();
+    
+    printf("Non-Terminals Encountered: (%d)\n", NT_count);
+    for (int i = 0; i < NT_count; i++) {
+        printf("%c ", NT_list[i]);
     }
-
-    // Print FOLLOW sets.
-    printf("\n=== FOLLOW Sets ===\n");
-    for (int i = 0; i < nonTerminalCount; i++) {
-        char nt = nonTerminals[i];
-        printf("FOLLOW(%c) = { ", nt);
-        for (int j = 0; j < (int)strlen(FOLLOW[nt]); j++) {
-            printf("%c ", FOLLOW[nt][j]);
-        }
-        printf("}\n");
+    printf("\nTerminals Encountered: (%d)\n", T_count);
+    for (int i = 0; i < T_count; i++) {
+        printf("%c ", T_list[i]);
     }
-
+    printf("\n");
+    
+    updateAllFirsts();
+    updateAllFollows();
+    
+    for (int i = 0; i < NT_count; i++) {
+        char nt = NT_list[i];
+        printf("First(%c) = { ", nt);
+        printf("%s", FIRST_set[(int)nt]);
+        printf(" }\n");
+    }
+    
+    for (int i = 0; i < NT_count; i++) {
+        char nt = NT_list[i];
+        printf("Follow(%c) = { ", nt);
+        printf("%s", FOLLOW_set[(int)nt]);
+        printf(" }\n");
+    }
+    
     return 0;
 }
