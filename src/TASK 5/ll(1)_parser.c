@@ -178,7 +178,7 @@ int CREATE_LL1_TABLE() {
         }
         int len = strlen(arr);
         for(j = 0; j < len; j++) {
-            if(arr[j] != '#' && arr[j] != '^') {
+            if(isprint(arr[j]) && arr[j] != '#' && arr[j] != '^') {
                 int t_index;
                 for(t_index = 0; t_index < t; t_index++) {
                     if(T[t_index] == arr[j]) {
@@ -283,9 +283,10 @@ void LL1_PARSER(char *str) {
             printf("Shift: %s", G[n-1]);
             top--; // pop non-terminal X
             STACK[top] = '\0';
-            char *prod = G[n-1] + 3; // production's RHS
+            char *prod = G[n-1] + 3;// production's RHS
+            trim(prod); 
             // For epsilon production do not push any symbol.
-            if(prod[0] != '#' && prod[0] != '^') {
+            if(prod[0] != '#' && prod[0] != '^' && prod[0] != '\0') {
                 int l = strlen(prod);
                 // Push production symbols in reverse order.
                 for(j = l - 1; j >= 0; j--) {

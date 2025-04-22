@@ -97,8 +97,7 @@ void computeFollow(char sym, char *followResult) {
     // For each production, check the RHS for occurrences of sym
     for (int i = 0; i < ruleCount; i++) {
         char *rhsPart = rules[i] + 2;
-        int len = strlen(rhsPart);
-        for (int j = 0; j < len; j++) {
+        for (int j = 0; rhsPart[j] != '\0'; j++) {
             if (rhsPart[j] == sym) {
                 // If not the last symbol in the RHS
                 if (rhsPart[j+1] != '\0') {
@@ -163,6 +162,27 @@ void discoverSymbols() {
     }
 }
 
+void sortSet(char *set) {
+    char order[] = "+#*()i$";  
+    char sorted[MAX_RHS] = "";
+    int k = 0;
+
+    for (int i = 0; i < strlen(order); i++) {
+        if (strchr(set, order[i])) {
+            sorted[k++] = order[i];
+        }
+    }
+
+    for (int i = 0; i < strlen(set); i++) {
+        if (!strchr(sorted, set[i])) {
+            sorted[k++] = set[i];
+        }
+    }
+
+    sorted[k] = '\0';
+    strcpy(set, sorted);
+}
+
 int main() {
     char inputLine[MAX_INPUT];
     
@@ -190,11 +210,13 @@ int main() {
     discoverSymbols();
     
     printf("Non-Terminals Encountered: (%d)\n", NT_count);
-    for (int i = 0; i < NT_count; i++) {
+    sortSet(NT_list);
+    for (int i = 0; i < strlen(NT_list); i++) {
         printf("%c ", NT_list[i]);
     }
     printf("\nTerminals Encountered: (%d)\n", T_count);
-    for (int i = 0; i < T_count; i++) {
+    sortSet(T_list);
+    for (int i = 0; i < strlen(T_list); i++) {
         printf("%c ", T_list[i]);
     }
     printf("\n");
@@ -204,17 +226,28 @@ int main() {
     
     for (int i = 0; i < NT_count; i++) {
         char nt = NT_list[i];
+        sortSet(FIRST_set[(int)nt]);
         printf("First(%c) = { ", nt);
-        printf("%s", FIRST_set[(int)nt]);
+        for (int j = 0; j < strlen(FIRST_set[(int)nt]); j++) {
+            printf("%c", FIRST_set[(int)nt][j]);
+            if (j < strlen(FIRST_set[(int)nt]) - 1)
+                printf(", ");
+        }
         printf(" }\n");
     }
     
     for (int i = 0; i < NT_count; i++) {
         char nt = NT_list[i];
+        sortSet(FOLLOW_set[(int)nt]);
         printf("Follow(%c) = { ", nt);
-        printf("%s", FOLLOW_set[(int)nt]);
+        for (int j = 0; j < strlen(FOLLOW_set[(int)nt]); j++) {
+            printf("%c", FOLLOW_set[(int)nt][j]);
+            if (j < strlen(FOLLOW_set[(int)nt]) - 1)
+                printf(", ");
+        }
         printf(" }\n");
     }
+    
     
     return 0;
 }
